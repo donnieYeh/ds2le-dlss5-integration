@@ -26,7 +26,9 @@ New-Item -ItemType Directory -Force -Path $stage | Out-Null
 Copy-Item -LiteralPath $dll -Destination (Join-Path $stage 'DINPUT8.dll')
 Copy-Item -LiteralPath (Join-Path $root 'config\ReShade.ini.example') -Destination (Join-Path $stage 'ReShade.ini.example')
 Copy-Item -LiteralPath (Join-Path $root 'README.md') -Destination (Join-Path $stage 'README.md')
+Copy-Item -LiteralPath (Join-Path $root 'README.en.md') -Destination (Join-Path $stage 'README.en.md')
 Copy-Item -LiteralPath (Join-Path $root 'INSTALL.txt') -Destination (Join-Path $stage 'INSTALL.txt')
+Copy-Item -LiteralPath (Join-Path $root 'INSTALL.en.txt') -Destination (Join-Path $stage 'INSTALL.en.txt')
 Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination (Join-Path $stage 'LICENSE')
 Copy-Item -LiteralPath (Join-Path $root 'NOTICE.md') -Destination (Join-Path $stage 'NOTICE.md')
 

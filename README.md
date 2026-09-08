@@ -1,83 +1,75 @@
-# DS2LE DLSS5 Integration
+# DS2LE DLSS5 接入
 
-An open-source DINPUT8 proxy that connects the DS2LightingEngine (DS2LE)
-DirectX 11 DLSS path to the community DLSS Neural Rendering (DLSSNR) stack.
-It is aimed at **Dark Souls II: Scholar of the First Sin** players who already
-use the DS2LE Path Tracing build.
+[中文（当前页面）](README.md) · [English](README.en.md)
 
-The proxy is the only file built here. It loads the Bridge and RenoDX add-ons,
-fills the ReShade API surface that DS2LE's host omits, and keeps the add-on
-callbacks alive while the game initializes. It does not contain DS2LE, the
-game, ReShade, or any NVIDIA/community runtime.
+这是一个开源的 DINPUT8 代理，将 DS2LightingEngine（DS2LE）的 DirectX 11
+DLSS 路径接入社区版 DLSS Neural Rendering（DLSSNR）运行时。
 
-## What is in a release?
+项目面向已经安装 DS2LE 光追版的《黑暗之魂 II：原罪学者》玩家。这里编译的
+唯一运行文件是代理 DLL；项目不包含 DS2LE、游戏、ReShade、NVIDIA 运行时或
+其他第三方二进制文件。
 
-Each GitHub Release contains:
+## Release 包含什么
 
-- `DINPUT8.dll` — this project's proxy;
-- `ReShade.ini.example` — settings to merge into the game's existing file;
-- `README.md`, `INSTALL.txt`, `LICENSE`, and `NOTICE.md`.
+每个 GitHub Release 包含：
 
-The release archive deliberately does **not** redistribute third-party DLLs or
-add-ons. They remain under their own terms and must be downloaded from their
-upstream pages below.
+- `DINPUT8.dll`：本项目代理；
+- `ReShade.ini.example`：需要合并到游戏配置的示例；
+- `README.md` / `README.en.md`：中英文说明；
+- `INSTALL.txt` / `INSTALL.en.txt`：中英文快速安装；
+- `LICENSE`、`NOTICE.md`。
 
-## Requirements
+第三方 DLL 和 addon 不会被重新分发。玩家需要从下方的上游页面自行下载，
+并遵守各自的许可和发布说明。
 
-- Windows 10/11 x64.
-- The Steam 64-bit edition of *Dark Souls II: Scholar of the First Sin*.
-- DS2LightingEngine (DS2LE) with its Path Tracing build installed first. Get it
-  from the [DS2LightingEngine Nexus page](https://www.nexusmods.com/darksouls2/mods/1146)
-  and follow that project's installation instructions.
-- An NVIDIA RTX GPU and a DLSSNR runtime build that supports that GPU. The
-  tested baseline is RTX 40 + `310.8.0-RTX40`.
+## 使用要求
 
-### Tested compatibility baseline
+- Windows 10/11 x64；
+- Steam 版《Dark Souls II: Scholar of the First Sin》；
+- 先安装能正常运行的 DS2LightingEngine（DS2LE）光追版。请参阅
+  [DS2LightingEngine Nexus 页面](https://www.nexusmods.com/darksouls2/mods/1146)；
+- NVIDIA RTX 显卡，以及与显卡匹配的 DLSSNR 运行时。当前项目已验证的是
+  RTX 40 + `310.8.0-RTX40`。
 
-| Component | Tested value |
+### 已验证组合
+
+| 组件 | 已验证版本 |
 | --- | --- |
-| DS2LE | Path Tracing public build `0.1` |
-| RenoDX DLSS5 | `4.60` (the add-on commonly called v4.6) |
-| DLSS5 Bridge | `v1.4.12` stable |
+| DS2LE | Path Tracing 公测版 `0.1` |
+| RenoDX DLSS5 | `4.60`（通常称 v4.6） |
+| DLSS5 Bridge | 稳定版 `v1.4.12` |
 | DLSSNR | `310.8.0-RTX40` |
-| GPU / driver | RTX 4070 SUPER / NVIDIA 616.64 |
+| 显卡 / 驱动 | RTX 4070 SUPER / NVIDIA 616.64 |
 
-The proxy contains version-specific offsets for the tested RenoDX build. Do
-not silently replace `renodx-dlss5.addon64` with another build and assume it is
-compatible. Treat an add-on upgrade as a new compatibility test.
+代理中的内存偏移绑定 RenoDX `4.60`。不要把 addon 随意升级到其他版本后
+直接继续使用；addon 升级必须重新做兼容性验证。
 
-## Runtime files to obtain separately
+## 需要另行下载的运行时资源
 
-Download these files yourself and keep their original release notes and
-licenses:
+请保留上游文件的原始发布说明和许可证：
 
-| File | Source | Where it goes |
+| 文件 | 下载来源 | 放置位置 |
 | --- | --- | --- |
-| DS2LE Path Tracing files, including the ReShade `dxgi.dll` host | [DS2LightingEngine on Nexus](https://www.nexusmods.com/darksouls2/mods/1146) | Install the complete DS2LE package as documented by its author |
-| `dlss5-bridge.addon64` (`v1.4.12`) | [NIGos/dlss5-bridge releases](https://github.com/NIGos/dlss5-bridge/releases/tag/v1.4.12) | `Game\` |
-| `renodx-dlss5.addon64` (`4.60`) | [RankFTW/rhi-repo — RenoDX DLSS5 4.60](https://github.com/RankFTW/rhi-repo/releases/tag/renodx-dlss5-4.60) | `Game\` |
-| `nvngx_dlssnr.dll` (`310.8.0-RTX40`) | [RankFTW/rhi-repo releases](https://github.com/RankFTW/rhi-repo/releases) | `Game\` |
+| DS2LE 光追文件（包括 ReShade `dxgi.dll` 宿主） | [DS2LightingEngine Nexus](https://www.nexusmods.com/darksouls2/mods/1146) | 按作者说明完整安装 |
+| `dlss5-bridge.addon64`（`v1.4.12`） | [NIGos/dlss5-bridge Releases](https://github.com/NIGos/dlss5-bridge/releases/tag/v1.4.12) | `Game\` |
+| `renodx-dlss5.addon64`（`4.60`） | [RankFTW/rhi-repo — RenoDX DLSS5 4.60](https://github.com/RankFTW/rhi-repo/releases/tag/renodx-dlss5-4.60) | `Game\` |
+| `nvngx_dlssnr.dll`（`310.8.0-RTX40`） | [RankFTW/rhi-repo Releases](https://github.com/RankFTW/rhi-repo/releases) | `Game\` |
 
-The DS2LE package's own `nvngx_dlss.dll`, `nvngx_dlssd.dll`, and
-`nvngx_dlssg.dll` are not replaced by this project. The proxy only adds the
-DLSSNR path. Keep exactly one copy of each add-on in `Game\`.
+DS2LE 自带的 `nvngx_dlss.dll`、`nvngx_dlssd.dll`、`nvngx_dlssg.dll` 不需要
+替换。本项目只增加 DLSSNR 路径。`Game\` 中每个 addon 只保留一份。
 
-## Installation
+## 安装步骤
 
-1. Close the game and Steam.
-2. Install and launch DS2LE once so its `Game\dxgi.dll` and ReShade setup are
-   known to work. Confirm that the game starts before adding this project.
-3. Back up the existing `Game\DINPUT8.dll`, `Game\dxgi.dll`, and
-   `Game\ReShade.ini` outside the game folder.
-4. Rename the original game input proxy to `Game\dinput8_orig.dll`. This is
-   required because the new proxy forwards the game's six native DINPUT8
-   exports to that filename.
-5. Copy `DINPUT8.dll` from the release archive into `Game\`.
-6. Copy `dlss5-bridge.addon64`, `renodx-dlss5.addon64`, and the matching
-   `nvngx_dlssnr.dll` into the same `Game\` folder.
-7. Open the existing `Game\ReShade.ini` and merge the sections from
-   `ReShade.ini.example`. Do not overwrite the whole file; preserve your DS2LE
-   settings. The important tested values are:
+1. 退出游戏和 Steam。
+2. 先安装 DS2LE，并启动一次确认原有光追和 `Game\dxgi.dll` 正常。
+3. 将 `Game\DINPUT8.dll`、`Game\dxgi.dll`、`Game\ReShade.ini` 备份到游戏目录之外。
+4. 将原版游戏输入代理重命名为 `Game\dinput8_orig.dll`。新代理通过这个
+   文件名转发游戏原本的六个 DINPUT8 导出。
+5. 将 Release 包中的 `DINPUT8.dll` 复制到 `Game\`。
+6. 将 `dlss5-bridge.addon64`、`renodx-dlss5.addon64`、匹配的
+   `nvngx_dlssnr.dll` 复制到同一个 `Game\` 目录。
+7. 打开现有的 `Game\ReShade.ini`，把 `ReShade.ini.example` 中的两个段合并
+   进去。不要覆盖整个文件，以免丢失 DS2LE 设置。基础配置如下：
 
    ```ini
    [RenoDX.DLSS5]
@@ -92,84 +84,77 @@ DLSSNR path. Keep exactly one copy of each add-on in `Game\`.
    EventsDxgi=1
    ```
 
-8. Start the game with its normal Steam shortcut. In the DS2LE F1 menu, keep
-   the game's antialiasing method on **NVIDIA DLSS**. Set the final resolution
-   and display mode before enabling neural rendering.
+8. 使用正常 Steam 快捷方式启动游戏。在 DS2LE 的 F1 菜单中保持抗锯齿为
+   **NVIDIA DLSS**；启用神经渲染前先确定最终分辨率和显示模式。
 
-The proxy writes `dlss5-loader.log` beside the executable. A successful run
-also records DLSSNR initialization in `ReShade.log` and DLSS5 feature activity
-in `DirectXHook.log`/`dlss5-bridge.log`.
+代理会在游戏目录生成 `dlss5-loader.log`。成功时还应能在 `ReShade.log`、
+`DirectXHook.log` 或 `dlss5-bridge.log` 中看到 DLSSNR 初始化和 feature 活动。
 
-## In-game controls
+## 游戏内按键
 
-- **F1** — DS2LE settings menu (owned by DS2LE).
-- **F2** — this project's small live configuration window.
-- **F5** — RenoDX screenshot key (hold for about one second).
-- **F6** — toggle neural rendering (hold for about one second).
+- **F1**：DS2LE 设置菜单；
+- **F2**：本项目实时配置窗口；
+- **F5**：RenoDX 截图（约按住 1 秒）；
+- **F6**：开关神经渲染（约按住 1 秒）。
 
-The F2 panel writes the RenoDX values to `ReShade.ini`. Most per-frame values
-are picked up in roughly one second; feature-creation values such as
-`NREnableUpscaling` still require a restart. The tested RTX 40 runtime can
-reject the upscaling contract (`0xBAD00005`) and then fall back to native
-neural rendering. That is expected on the tested hardware, not a reason to
-replace the runtime with an unverified DLL.
+F2 面板会写入 `ReShade.ini`。大多数逐帧参数约 1 秒内生效；`NREnableUpscaling`
+等 feature 创建期参数需要重启。已验证的 RTX 40 运行时可能拒绝升频契约
+（`0xBAD00005`），随后回退到原生神经渲染，这是运行时能力限制。
 
-## Troubleshooting and rollback
+## 故障排查与回滚
 
-**The game crashes during startup or when entering a scene**
+**启动或进入场景时崩溃**
 
-- Confirm that there is only one `dlss5-bridge.addon64` and one
-  `renodx-dlss5.addon64`.
-- Confirm that the RenoDX add-on is the tested `4.60` build.
-- Keep `[DLSS5Proxy] EventsBridge=0`; bridge event callbacks are not safe in
-  the current LE host even though the Bridge's frame-mirroring path works.
-- Set `NRStyle=0` temporarily, then inspect the fresh log files.
+- 确认每个 addon 只有一份；
+- 确认 RenoDX 是已验证的 `4.60`；
+- 保持 `[DLSS5Proxy] EventsBridge=0`，当前 LE 宿主中 Bridge 事件回调不安全；
+- 临时将 `NRStyle` 改为 `0`，再查看新生成的日志。
 
-**No DLSSNR activity appears in the logs**
+**日志中没有 DLSSNR**
 
-- Check that DS2LE's `dxgi.dll` is still in `Game\` and that the original game
-  DLL is named `dinput8_orig.dll`.
-- Verify that the game is using NVIDIA DLSS in the F1 menu.
-- Recheck each third-party file's architecture (all must be 64-bit) and keep
-  the add-ons directly in `Game\`, not in a subfolder.
+- 确认 DS2LE 的 `dxgi.dll` 仍在 `Game\`；
+- 确认原版输入代理名为 `dinput8_orig.dll`；
+- 确认 F1 菜单使用 NVIDIA DLSS；
+- 确认所有 addon 和 DLL 都是 64 位，并且直接放在 `Game\`。
 
-**Returning to the unmodified setup**
+**恢复原状**
 
-1. Close the game.
-2. Remove this project's `DINPUT8.dll` and the three third-party files added in
-   step 6.
-3. Restore the original `DINPUT8.dll` and your backed-up `ReShade.ini` (and
-   `dxgi.dll` if you changed it). The game files themselves are not modified by
-   this project.
+1. 退出游戏；
+2. 删除本项目的 `DINPUT8.dll` 和新增的三个第三方文件；
+3. 恢复备份的原版 `DINPUT8.dll`、`ReShade.ini`，必要时恢复 `dxgi.dll`。
 
-## Build from source
+本项目不会修改游戏资源文件。
 
-The proxy is CRT-free C and uses the Microsoft x64 compiler plus GNU `ld` for
-the DINPUT8 forwarders.
+## 从源码构建
 
-Prerequisites:
+代理使用不依赖 CRT 的 C 代码，通过 Microsoft x64 编译器和 GNU `ld` 生成
+DINPUT8 转发器。
 
-- Visual Studio 2022 C++ x64 build tools;
-- [MSYS2](https://www.msys2.org/) UCRT64 `binutils` (`ld.exe`).
+依赖：
 
-From a Developer PowerShell or ordinary PowerShell prompt:
+- Visual Studio 2022 C++ x64 Build Tools；
+- [MSYS2](https://www.msys2.org/) UCRT64 `binutils`（提供 `ld.exe`）。
+
+在 PowerShell 中运行：
 
 ```powershell
 cmd /c src\proxy\build.cmd
 ```
 
-The script writes `src\proxy\DINPUT8.dll`. It locates Visual Studio with
-`vswhere` and accepts `DLSS5_LD`/`DLSS5_LIB` environment overrides, which is
-how the CI job supplies the MSYS2 linker.
+输出文件为 `src\proxy\DINPUT8.dll`。脚本会通过 `vswhere` 定位 Visual Studio，
+并支持用 `DLSS5_LD` / `DLSS5_LIB` 覆盖链接器路径，CI 使用的就是这两个变量。
 
-## GitHub Actions releases
+## GitHub Actions 发布
 
-`.github/workflows/build-release.yml` runs on pull requests and on `v*` tags.
-It compiles the proxy on a Windows runner, rejects accidental bundled runtime
-binaries, creates the player zip and a SHA-256 manifest, and uploads the zip
-as a published GitHub Release asset for a tag.
+[`.github/workflows/build-release.yml`](.github/workflows/build-release.yml) 会在
+Pull Request 和 `v*` tag 上运行：
 
-To publish a release after pushing the repository to GitHub:
+1. Windows runner + MSYS2 UCRT64 编译；
+2. 检查仓库中没有误提交的游戏或第三方二进制；
+3. 生成玩家 ZIP 和 SHA-256 清单；
+4. 对 `v*` tag 自动创建或更新 GitHub Release。
+
+发布新版本：
 
 ```powershell
 git add .
@@ -178,27 +163,20 @@ git tag -a v0.1.0 -m "Initial player release"
 git push origin main --follow-tags
 ```
 
-Use a new semantic version tag for each compatibility change. If the RenoDX
-layout or DS2LE host changes, update the pinned baseline and retest before
-cutting a release.
+每次 RenoDX 或 DS2LE 主机布局变化都应更新兼容性说明并重新测试后再打 tag。
 
-## Development notes
+## 开发建议
 
-- The proxy edits the loaded LE `dxgi.dll` export table in memory and writes a
-  small event dispatch table. This is intentionally narrow and version-bound;
-  it is not a general ReShade compatibility layer.
-- The source is kept separate from the proprietary runtime files so a clean
-  checkout is reproducible and the release archive has a clear license
-  boundary.
-- The most useful future improvements are automated smoke tests for the PE
-  exports, a versioned offset manifest for each RenoDX build, and a small
-  installer that performs backups without downloading third-party binaries.
+- 当前代理会在内存中修改 LE `dxgi.dll` 的导出表和事件派发表，因此它是
+  针对特定版本的窄适配层，不是通用 ReShade 兼容层；
+- 源码与闭源运行时分离，保持干净 checkout 可复现，并明确许可证边界；
+- 后续最值得做的是版本化 offset manifest、PE 导出自动化冒烟测试，以及
+  只负责备份/恢复而不下载第三方二进制的安装器。
 
-## Credits and licensing
+## 许可与致谢
 
-The proxy source is MIT-licensed; see [LICENSE](LICENSE). Third-party
-components retain their own terms. See [NOTICE.md](NOTICE.md) for the
-non-redistribution boundary.
+代理源码采用 MIT 许可证，见 [LICENSE](LICENSE)。第三方组件保持各自许可，
+边界说明见 [NOTICE.md](NOTICE.md)。
 
 - [DS2LightingEngine](https://www.nexusmods.com/darksouls2/mods/1146)
 - [NIGos/dlss5-bridge](https://github.com/NIGos/dlss5-bridge)

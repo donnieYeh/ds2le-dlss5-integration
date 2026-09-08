@@ -1,29 +1,28 @@
-# Development and release notes
+# 开发与发布说明
 
-## Repository boundary
+[中文（当前页面）](DEVELOPMENT.md) · [English](DEVELOPMENT.en.md)
 
-This repository owns the DINPUT8 proxy, its linker definition, configuration
-template, and packaging workflow. It intentionally has no game files and no
-third-party runtime binaries. Keep local runtime material outside the checkout
-or under an ignored `runtime/` directory.
+## 仓库边界
 
-## Build architecture
+本仓库只负责 DINPUT8 代理、链接定义、配置模板和打包工作流。
+仓库不包含游戏文件和第三方运行时；本地运行时请放在 checkout 之外，
+或放入已被忽略的 `runtime/` 目录。
 
-`src/proxy/dinput8.c` is compiled without the C runtime. It forwards the six
-native DINPUT8 exports through `dinput8.def` and starts a worker after the
-DS2LE/ReShade `dxgi.dll` host is present. The worker loads the Bridge and RenoDX
-add-ons from the game directory. The proxy then supplies the missing ReShade
-entry points, redirects the six LE stubs, and maintains the event slots that
-LE resets during device initialization.
+## 构建结构
 
-The configuration poke table is tied to RenoDX DLSS5 4.60. If a new add-on
-changes its layout, the table must be re-derived and tested before release;
-never hide that change behind an unqualified "latest" download.
+`src/proxy/dinput8.c` 使用无 CRT 的 C 代码编译。它通过
+`dinput8.def` 转发六个原生 DINPUT8 导出，并在 DS2LE/ReShade 的
+`dxgi.dll` 宿主出现后启动 worker。worker 从游戏目录加载 Bridge
+和 RenoDX addon，补齐缺失的 ReShade 入口，重定向 LE 的六个 stub，并维护
+LE 在设备初始化期间会清空的事件槽。
 
-`src/tests/fake_dxgi.c` is a tiny offline export fixture for linker/export
-experiments. It does not emulate a game or certify runtime compatibility.
+配置 poke 表绑定 RenoDX DLSS5 `4.60`。如果新 addon 改变布局，必须重新推导
+并测试地址表后再发布；不要用不加限定的 `latest` 下载掩盖兼容性变化。
 
-## Local checks
+`src/tests/fake_dxgi.c` 是用于链接器/导出实验的离线小型 fixture，
+不模拟真实游戏，也不能证明运行时兼容。
+
+## 本地检查
 
 ```powershell
 cmd /c src\proxy\build.cmd
@@ -31,29 +30,27 @@ cmd /c src\proxy\build.cmd
 git diff --check
 ```
 
-Before opening a pull request, confirm that no `.dll`, `.addon64`, `.rar`, or
-game archive has entered Git. The workflow performs the same policy check.
+提交 Pull Request 前确认没有把 `.dll`、`.addon64`、`.rar`
+或游戏压缩包加入 Git。工作流会执行同样的策略检查。
 
-## Release checklist
+## 发布清单
 
-1. Test the exact DS2LE, Bridge, RenoDX and DLSSNR versions listed in the
-   README on a clean game-folder backup.
-2. Record the tested GPU/driver and update the compatibility table.
-3. Run the build and inspect the SHA-256 output.
-4. Commit the change and create an annotated `vX.Y.Z` tag.
-5. Push the branch and tag. The tag workflow publishes the zip and
-   `SHA256SUMS.txt`.
-6. In the GitHub Release notes, call out compatibility changes and known
-   runtime limitations; do not imply that third-party binaries are bundled.
+1. 在干净的游戏目录备份上测试 README 中列出的确切 DS2LE、Bridge、RenoDX
+   和 DLSSNR 版本；
+2. 记录测试显卡/驱动并更新兼容性表；
+3. 构建并检查 SHA-256 输出；
+4. 提交修改并创建带注释的 `vX.Y.Z` tag；
+5. 推送分支和 tag，tag 工作流会发布 ZIP 与 `SHA256SUMS.txt`；
+6. 在 GitHub Release 说明兼容性变化和已知运行时限制，不要暗示已打包
+   第三方二进制。
 
-## Design advice
+## 设计建议
 
-- Prefer a new offset manifest and an explicit compatibility error over
-  silently poking an unknown add-on build.
-- Keep installation reversible: backup names should be outside the release
-  archive and a future installer should never delete an existing game file.
-- Treat logs as diagnostics, not as proof that a particular visual style is
-  active. For regression reports, collect `dlss5-loader.log`, `ReShade.log`,
-  `DirectXHook.log`, the exact tag, and the runtime hashes.
-- Keep CI deterministic. Pin action major versions, build on a Windows runner,
-  and publish only artifacts produced by the tagged commit.
+- 新 offset 应进入版本化 manifest，并在遇到未知 addon 时明确停用，而不是
+  默默向未知地址写内存；
+- 安装流程必须可逆：备份放在 Release 包之外，未来安装器绝不能删除现有游戏文件；
+- 日志是诊断信息，不等于证明某种画面风格已经启用。回报问题时收集
+  `dlss5-loader.log`、`ReShade.log`、`DirectXHook.log`、
+  exact tag 和运行时哈希；
+- CI 应保持确定性：固定 action 主版本、使用 Windows runner，并且只发布
+  tagged commit 产出的 artifact。
