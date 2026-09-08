@@ -1,0 +1,108 @@
+name: Build and release
+
+on:
+  pull_request:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - name: Keep line endings stable for MSYS2
+        shell: pwsh
+        run: git config --global core.autocrlf input
+
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Install MSYS2 UCRT64 binutils
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-binutils
+
+      - name: Reject bundled third-party or game binaries
+        shell: pwsh
+        run: |
+          $badExtensions = @('.dll', '.addon64', '.rar')
+          $bad = Get-ChildItem -Path . -Recurse -File |
+            Where-Object { $badExtensions -contains $_.Extension.ToLowerInvariant() }
+          if ($bad) {
+            $bad | ForEach-Object { Write-Error "Forbidden bundled binary: $($_.FullName)" }
+            exit 1
+          }
+
+      - name: Build proxy
+        shell: pwsh
+        env:
+          DLSS5_LD: ${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin\ld.exe
+          DLSS5_LIB: ${{ steps.msys2.outputs.msys2-location }}\ucrt64\lib
+        run: cmd /c src\proxy\build.cmd
+
+      - name: Verify PE output
+        shell: pwsh
+        run: |
+          $dll = Join-Path $env:GITHUB_WORKSPACE 'src\proxy\DINPUT8.dll'
+          if (-not (Test-Path -LiteralPath $dll -PathType Leaf)) { throw "Missing $dll" }
+          $item = Get-Item -LiteralPath $dll
+          if ($item.Length -lt 4096) { throw "DINPUT8.dll is unexpectedly small" }
+          Get-FileHash -LiteralPath $dll -Algorithm SHA256
+
+      - name: Create player package
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || 'ci' }}
+        run: .\tools\package-release.ps1 -Version $env:RELEASE_VERSION
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-bundle
+          path: |
+            dist/*.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+  release:
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    needs: build
+    runs-on: windows-2022
+    permissions:
+      contents: write
+    steps:
+      - name: Download packaged artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-bundle
+          path: dist
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $zip = Get-ChildItem -LiteralPath dist -Filter '*.zip' -File
+          $sums = Get-Item -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'dist\SHA256SUMS.txt')
+          if ($zip.Count -ne 1) { throw "Expected exactly one zip, found $($zip.Count)" }
+
+          gh release view $env:RELEASE_TAG --repo $env:GH_REPO *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:RELEASE_TAG $zip.FullName $sums.FullName --repo $env:GH_REPO --clobber
+          } else {
+            gh release create $env:RELEASE_TAG $zip.FullName $sums.FullName `
+              --repo $env:GH_REPO `
+              --title "DS2LE DLSS5 Integration $env:RELEASE_TAG" `
+              --generate-notes `
+              --verify-tag
+          }

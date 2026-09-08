@@ -1,0 +1,16 @@
+DS2LE DLSS5 Integration
+
+1. Install DS2LightingEngine (DS2LE) Path Tracing first.
+2. Back up every existing DINPUT8.dll, dxgi.dll and ReShade.ini in the game's
+   Game folder.
+3. Rename the original game's DINPUT8.dll to dinput8_orig.dll.
+4. Copy this package's DINPUT8.dll into that same Game folder.
+5. Copy dlss5-bridge.addon64, renodx-dlss5.addon64 and nvngx_dlssnr.dll from
+   the upstream links in README.md into the same Game folder.
+6. Merge the two sections from ReShade.ini.example into the existing
+   ReShade.ini. Do not overwrite DS2LE settings.
+7. Start the game normally. Keep only one copy of each add-on installed.
+
+To roll back, close the game, remove this project's DINPUT8.dll, restore the
+original DINPUT8.dll and revert the ReShade.ini sections. The third-party
+add-ons can then be removed or restored from their backups.

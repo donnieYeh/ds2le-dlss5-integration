@@ -1,0 +1,21 @@
+# Build products
+src/proxy/*.obj
+src/proxy/*.dll
+dist/
+
+# Runtime logs and local test material
+*.log
+*.dmp
+*.rar
+runtime/
+local-game/
+
+# Tooling/editor state
+.agents/
+skills-lock.json
+.vs/
+.vscode/
+
+# Python cache (analysis tools are optional and not part of the player bundle)
+__pycache__/
+*.py[cod]

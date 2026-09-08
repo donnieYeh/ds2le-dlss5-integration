@@ -1,0 +1,33 @@
+; Merge these sections into the existing ReShade.ini in the game's Game\ folder.
+; Do not replace your complete ReShade.ini: it may contain DS2LE settings.
+
+[RenoDX.DLSS5]
+; 2 = NGX hooks only; this is the tested DS2LE path.
+EnableHooks=2
+; Natural style. 0 is the conservative fallback if a build behaves oddly.
+NRStyle=1
+; The tested RTX 40 runtime can reject the upscaling contract and fall back
+; to native neural rendering. Set to 1 only if you want to try that path.
+NREnableUpscaling=0
+NeuralUplift=1
+NRPreset=0
+NRIntensity=1
+NRLocalTone=1
+NRLocalStructure=1
+NRSkinStructure=-1
+NRAutoMask=0
+NRUICorrection=0
+NRDepthMode=0
+NRMVecScaleX=1
+NRMVecScaleY=1
+NRPaperWhiteScale=1
+NRTransferStrength=1
+NRColorStrength=1
+NRToggleKey=117
+NRScreenshotKey=116
+
+[DLSS5Proxy]
+; Required for the currently tested Bridge build on LE.
+EventsBridge=0
+EventsRenodx=1
+EventsDxgi=1
