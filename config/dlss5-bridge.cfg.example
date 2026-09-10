@@ -1,3 +1,0 @@
-# Merge this line into the dlss5-bridge.cfg created in the game's Game\ folder.
-# It enables the accepted single pre-SR NR pass from the bundled carrier.
-pre_sr_nr=1

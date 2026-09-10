@@ -35,26 +35,12 @@ jobs:
         shell: pwsh
         run: |
           $badExtensions = @('.dll', '.addon64', '.rar')
-          $allowedProjectArtifact = [IO.Path]::GetFullPath((Join-Path $env:GITHUB_WORKSPACE 'build-artifacts\pre-sr-nr\dlss5-bridge-pre-sr-nr.addon64'))
           $bad = Get-ChildItem -Path . -Recurse -File |
-            Where-Object {
-              ($badExtensions -contains $_.Extension.ToLowerInvariant()) -and
-              ([IO.Path]::GetFullPath($_.FullName) -ne $allowedProjectArtifact)
-            }
+            Where-Object { $badExtensions -contains $_.Extension.ToLowerInvariant() }
           if ($bad) {
             $bad | ForEach-Object { Write-Error "Forbidden bundled binary: $($_.FullName)" }
             exit 1
           }
-
-      - name: Verify accepted single pre-SR NR carrier
-        shell: pwsh
-        run: |
-          $carrier = Join-Path $env:GITHUB_WORKSPACE 'build-artifacts\pre-sr-nr\dlss5-bridge-pre-sr-nr.addon64'
-          if (-not (Test-Path -LiteralPath $carrier -PathType Leaf)) { throw "Missing $carrier" }
-          $expected = 'B38F504D09CA821708B5ED883ED1302BF5142110E6A7EF2F8AB3AF6CECD054DD'
-          $actual = (Get-FileHash -LiteralPath $carrier -Algorithm SHA256).Hash.ToUpperInvariant()
-          if ($actual -ne $expected) { throw "Unexpected pre-SR NR carrier hash: $actual" }
-          Write-Output "Accepted pre-SR NR carrier: $actual"
 
       - name: Verify MSYS2 import libraries
         shell: pwsh

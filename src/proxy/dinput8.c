@@ -13,15 +13,21 @@
 #include <windows.h>
 #include <commctrl.h>
 
-// CRT-free: satisfy cl's loop-idiom memcpy/memset emissions
+// CRT-free: satisfy cl's loop-idiom memcpy/memset emissions.
+// The volatile accesses are intentional: without them MSVC may recognize the
+// byte loop as memcpy and rewrite the implementation into a call to itself,
+// causing a stack overflow when the proxy copies a larger export table.
 #pragma function(memcpy, memset)
-void *memcpy(void *d, const void *s, size_t n) {
-    unsigned char *dd = (unsigned char *)d; const unsigned char *ss = (const unsigned char *)s;
-    size_t i; for (i = 0; i < n; i++) dd[i] = ss[i]; return d;
+__declspec(noinline) void *memcpy(void *d, const void *s, size_t n) {
+    volatile unsigned char *dd = (volatile unsigned char *)d;
+    const volatile unsigned char *ss = (const volatile unsigned char *)s;
+    while (n-- != 0) *dd++ = *ss++;
+    return d;
 }
-void *memset(void *d, int c, size_t n) {
-    unsigned char *dd = (unsigned char *)d; size_t i;
-    for (i = 0; i < n; i++) dd[i] = (unsigned char)c; return d;
+__declspec(noinline) void *memset(void *d, int c, size_t n) {
+    volatile unsigned char *dd = (volatile unsigned char *)d;
+    while (n-- != 0) *dd++ = (unsigned char)c;
+    return d;
 }
 
 static int wlen(const wchar_t *s) { int n = 0; while (s[n]) n++; return n; }
