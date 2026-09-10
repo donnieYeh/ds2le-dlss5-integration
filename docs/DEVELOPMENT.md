@@ -4,9 +4,8 @@
 
 ## 仓库边界
 
-本仓库只负责 DINPUT8 代理、链接定义、配置模板和打包工作流。
-仓库不包含游戏文件和第三方运行时；本地运行时请放在 checkout 之外，
-或放入已被忽略的 `runtime/` 目录。
+本仓库负责 DINPUT8 代理、已验收的单层 pre-SR NR carrier、配置模板和打包
+工作流。仓库不包含游戏文件、DS2LE、RenoDX 或 NVIDIA 运行时。
 
 ## 构建结构
 
@@ -16,6 +15,8 @@
 和 RenoDX addon，补齐缺失的 ReShade 入口，重定向 LE 的六个 stub，并维护
 LE 在设备初始化期间会清空的事件槽。
 
+单层 pre-SR NR carrier 固定在 `build-artifacts/pre-sr-nr/`，其 SHA-256
+必须保持 `B38F504D09CA821708B5ED883ED1302BF5142110E6A7EF2F8AB3AF6CECD054DD`。
 配置 poke 表绑定 RenoDX DLSS5 `4.60`。如果新 addon 改变布局，必须重新推导
 并测试地址表后再发布；不要用不加限定的 `latest` 下载掩盖兼容性变化。
 
@@ -30,19 +31,19 @@ cmd /c src\proxy\build.cmd
 git diff --check
 ```
 
-提交 Pull Request 前确认没有把 `.dll`、`.addon64`、`.rar`
-或游戏压缩包加入 Git。工作流会执行同样的策略检查。
+提交 Pull Request 前确认没有把额外的 `.dll`、`.addon64`、`.rar` 或游戏压缩包
+加入 Git；版本锁定的 carrier 是唯一例外。工作流会执行同样的策略检查。
 
 ## 发布清单
 
-1. 在干净的游戏目录备份上测试 README 中列出的确切 DS2LE、Bridge、RenoDX
+1. 在干净的游戏目录备份上测试 README 中列出的确切 DS2LE、carrier、RenoDX
    和 DLSSNR 版本；
 2. 记录测试显卡/驱动并更新兼容性表；
 3. 构建并检查 SHA-256 输出；
 4. 提交修改并创建带注释的 `vX.Y.Z` tag；
 5. 推送分支和 tag，tag 工作流会发布 ZIP 与 `SHA256SUMS.txt`；
-6. 在 GitHub Release 说明兼容性变化和已知运行时限制，不要暗示已打包
-   第三方二进制。
+6. 在 GitHub Release 说明兼容性变化和已知运行时限制，并区分项目 carrier
+   与未打包的第三方运行时。
 
 ## 设计建议
 

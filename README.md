@@ -5,22 +5,25 @@
 这是一个开源的 DINPUT8 代理，将 DS2LightingEngine（DS2LE）的 DirectX 11
 DLSS 路径接入社区版 DLSS Neural Rendering（DLSSNR）运行时。
 
-项目面向已经安装 DS2LE 光追版的《黑暗之魂 II：原罪学者》玩家。这里编译的
-唯一运行文件是代理 DLL；项目不包含 DS2LE、游戏、ReShade、NVIDIA 运行时或
-其他第三方二进制文件。
+项目面向已经安装 DS2LE 光追版的《黑暗之魂 II：原罪学者》玩家。发布包包含
+代理 DLL 和已验收的单层 pre-SR NR carrier；项目不包含 DS2LE、游戏、ReShade、
+RenoDX 或 NVIDIA 运行时。
 
 ## Release 包含什么
 
 每个 GitHub Release 包含：
 
 - `DINPUT8.dll`：本项目代理；
+- `dlss5-bridge.addon64`：本项目 `9ae8e89` 验收的单层 pre-SR NR carrier；
 - `ReShade.ini.example`：需要合并到游戏配置的示例；
+- `dlss5-bridge.cfg.example`：启用单层 pre-SR NR 的配置示例；
+- `PRE-SR-NR-BUILD.md`：carrier 构建记录；
 - `README.md` / `README.en.md`：中英文说明；
 - `INSTALL.txt` / `INSTALL.en.txt`：中英文快速安装；
 - `LICENSE`、`NOTICE.md`。
 
-第三方 DLL 和 addon 不会被重新分发。玩家需要从下方的上游页面自行下载，
-并遵守各自的许可和发布说明。
+RenoDX、DLSSNR、DS2LE 和 ReShade 等第三方组件不会被重新分发。玩家需要从
+下方的上游页面自行下载，并遵守各自的许可和发布说明。
 
 ## 使用要求
 
@@ -37,7 +40,7 @@ DLSS 路径接入社区版 DLSS Neural Rendering（DLSSNR）运行时。
 | --- | --- |
 | DS2LE | Path Tracing 公测版 `0.1` |
 | RenoDX DLSS5 | `4.60`（通常称 v4.6） |
-| DLSS5 Bridge | 稳定版 `v1.4.12` |
+| DLSS5 Bridge | 本项目单层 pre-SR NR carrier（基于 `v1.4.12` / `5050b04`） |
 | DLSSNR | `310.8.0-RTX40` |
 | 显卡 / 驱动 | RTX 4070 SUPER / NVIDIA 616.64 |
 
@@ -51,9 +54,12 @@ DLSS 路径接入社区版 DLSS Neural Rendering（DLSSNR）运行时。
 | 文件 | 下载来源 | 放置位置 |
 | --- | --- | --- |
 | DS2LE 光追文件（包括 ReShade `dxgi.dll` 宿主） | [DS2LightingEngine Nexus](https://www.nexusmods.com/darksouls2/mods/1146) | 按作者说明完整安装 |
-| `dlss5-bridge.addon64`（`v1.4.12`） | [NIGos/dlss5-bridge Releases](https://github.com/NIGos/dlss5-bridge/releases/tag/v1.4.12) | `Game\` |
 | `renodx-dlss5.addon64`（`4.60`） | [RankFTW/rhi-repo — RenoDX DLSS5 4.60](https://github.com/RankFTW/rhi-repo/releases/tag/renodx-dlss5-4.60) | `Game\` |
 | `nvngx_dlssnr.dll`（`310.8.0-RTX40`） | [RankFTW/rhi-repo Releases](https://github.com/RankFTW/rhi-repo/releases) | `Game\` |
+
+Release 包中的 `dlss5-bridge.addon64` 已是本项目的单层 pre-SR NR carrier，
+不需要另外下载上游 Bridge。它基于上游 `v1.4.12` / commit `5050b04`，并按
+代理所需的文件名放置。
 
 DS2LE 自带的 `nvngx_dlss.dll`、`nvngx_dlssd.dll`、`nvngx_dlssg.dll` 不需要
 替换。本项目只增加 DLSSNR 路径。`Game\` 中每个 addon 只保留一份。
@@ -66,9 +72,11 @@ DS2LE 自带的 `nvngx_dlss.dll`、`nvngx_dlssd.dll`、`nvngx_dlssg.dll` 不需�
 4. 将原版游戏输入代理重命名为 `Game\dinput8_orig.dll`。新代理通过这个
    文件名转发游戏原本的六个 DINPUT8 导出。
 5. 将 Release 包中的 `DINPUT8.dll` 复制到 `Game\`。
-6. 将 `dlss5-bridge.addon64`、`renodx-dlss5.addon64`、匹配的
-   `nvngx_dlssnr.dll` 复制到同一个 `Game\` 目录。
-7. 打开现有的 `Game\ReShade.ini`，把 `ReShade.ini.example` 中的两个段合并
+6. 将包中的 `dlss5-bridge.addon64`，以及按 README 上游链接下载的
+   `renodx-dlss5.addon64`、匹配的 `nvngx_dlssnr.dll` 复制到同一个 `Game\` 目录。
+7. 将 `dlss5-bridge.cfg.example` 中的 `pre_sr_nr=1` 合并到
+   `Game\dlss5-bridge.cfg`；不要覆盖 Bridge 的其他设置。
+8. 打开现有的 `Game\ReShade.ini`，把 `ReShade.ini.example` 中的两个段合并
    进去。不要覆盖整个文件，以免丢失 DS2LE 设置。基础配置如下：
 
    ```ini
@@ -84,7 +92,7 @@ DS2LE 自带的 `nvngx_dlss.dll`、`nvngx_dlssd.dll`、`nvngx_dlssg.dll` 不需�
    EventsDxgi=1
    ```
 
-8. 使用正常 Steam 快捷方式启动游戏。在 DS2LE 的 F1 菜单中保持抗锯齿为
+9. 使用正常 Steam 快捷方式启动游戏。在 DS2LE 的 F1 菜单中保持抗锯齿为
    **NVIDIA DLSS**；启用神经渲染前先确定最终分辨率和显示模式。
 
 代理会在游戏目录生成 `dlss5-loader.log`。成功时还应能在 `ReShade.log`、
@@ -97,8 +105,9 @@ DS2LE 自带的 `nvngx_dlss.dll`、`nvngx_dlssd.dll`、`nvngx_dlssg.dll` 不需�
 - **F5**：RenoDX 截图（约按住 1 秒）；
 - **F6**：开关神经渲染（约按住 1 秒）。
 
-F2 面板会写入 `ReShade.ini`。大多数逐帧参数约 1 秒内生效；`NREnableUpscaling`
-等 feature 创建期参数需要重启。已验证的 RTX 40 运行时可能拒绝升频契约
+F2 面板会写入 `ReShade.ini`。单层 pre-SR NR 由 Bridge 配置中的
+`pre_sr_nr=1` 启用；它先执行同分辨率 feature-18 NR，再执行原生 feature-1 SR。
+已验证的 RTX 40 运行时可能拒绝升频契约
 （`0xBAD00005`），随后回退到原生神经渲染，这是运行时能力限制。
 
 ## 故障排查与回滚
@@ -106,6 +115,7 @@ F2 面板会写入 `ReShade.ini`。大多数逐帧参数约 1 秒内生效；`NR
 **启动或进入场景时崩溃**
 
 - 确认每个 addon 只有一份；
+- 确认使用的是包内单层 pre-SR NR carrier，而不是未经验证的上游 Bridge；
 - 确认 RenoDX 是已验证的 `4.60`；
 - 保持 `[DLSS5Proxy] EventsBridge=0`，当前 LE 宿主中 Bridge 事件回调不安全；
 - 临时将 `NRStyle` 改为 `0`，再查看新生成的日志。
@@ -120,7 +130,7 @@ F2 面板会写入 `ReShade.ini`。大多数逐帧参数约 1 秒内生效；`NR
 **恢复原状**
 
 1. 退出游戏；
-2. 删除本项目的 `DINPUT8.dll` 和新增的三个第三方文件；
+2. 删除本项目的 `DINPUT8.dll` 和包内的 `dlss5-bridge.addon64`；
 3. 恢复备份的原版 `DINPUT8.dll`、`ReShade.ini`，必要时恢复 `dxgi.dll`。
 
 本项目不会修改游戏资源文件。
@@ -141,7 +151,9 @@ DINPUT8 转发器。
 cmd /c src\proxy\build.cmd
 ```
 
-输出文件为 `src\proxy\DINPUT8.dll`。脚本会通过 `vswhere` 定位 Visual Studio，
+输出文件为 `src\proxy\DINPUT8.dll`。单层 carrier 已作为版本锁定的项目构建产物
+放在 `build-artifacts\pre-sr-nr\`，不需要在本地重新 patch 第三方 Bridge。
+脚本会通过 `vswhere` 定位 Visual Studio，
 并支持用 `DLSS5_LD` / `DLSS5_LIB` 覆盖链接器路径，CI 使用的就是这两个变量。
 
 ## GitHub Actions 发布
@@ -149,10 +161,11 @@ cmd /c src\proxy\build.cmd
 [`.github/workflows/build-release.yml`](.github/workflows/build-release.yml) 会在
 Pull Request 和 `v*` tag 上运行：
 
-1. Windows runner + MSYS2 UCRT64 编译；
-2. 检查仓库中没有误提交的游戏或第三方二进制；
-3. 生成玩家 ZIP 和 SHA-256 清单；
-4. 对 `v*` tag 自动创建或更新 GitHub Release。
+1. Windows runner + MSYS2 UCRT64 编译代理；
+2. 校验 `9ae8e89` 的单层 carrier 哈希；
+3. 检查仓库中没有误提交的游戏或第三方二进制；
+4. 生成包含代理和 carrier 的玩家 ZIP 与 SHA-256 清单；
+5. 对 `v*` tag 自动创建或更新 GitHub Release。
 
 发布新版本：
 

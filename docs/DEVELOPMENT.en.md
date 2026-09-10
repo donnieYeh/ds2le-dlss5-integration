@@ -4,10 +4,9 @@
 
 ## Repository boundary
 
-This repository owns the DINPUT8 proxy, its linker definition, configuration
-template, and packaging workflow. It intentionally has no game files and no
-third-party runtime binaries. Keep local runtime material outside the checkout
-or under an ignored `runtime/` directory.
+This repository owns the DINPUT8 proxy, the accepted single pre-SR NR carrier,
+its linker definition, configuration template, and packaging workflow. It has
+no game files, DS2LE files, RenoDX binaries, or NVIDIA runtime binaries.
 
 ## Build architecture
 
@@ -18,6 +17,9 @@ add-ons from the game directory. The proxy then supplies the missing ReShade
 entry points, redirects the six LE stubs, and maintains the event slots that
 LE resets during device initialization.
 
+The single pre-SR NR carrier is pinned under
+`build-artifacts/pre-sr-nr/` and must retain SHA-256
+`B38F504D09CA821708B5ED883ED1302BF5142110E6A7EF2F8AB3AF6CECD054DD`.
 The configuration poke table is tied to RenoDX DLSS5 4.60. If a new add-on
 changes its layout, the table must be re-derived and tested before release;
 never hide that change behind an unqualified "latest" download.
@@ -33,12 +35,13 @@ cmd /c src\proxy\build.cmd
 git diff --check
 ```
 
-Before opening a pull request, confirm that no `.dll`, `.addon64`, `.rar`, or
-game archive has entered Git. The workflow performs the same policy check.
+Before opening a pull request, confirm that no extra `.dll`, `.addon64`, `.rar`,
+or game archive has entered Git; the pinned carrier is the only exception. The
+workflow performs the same policy check.
 
 ## Release checklist
 
-1. Test the exact DS2LE, Bridge, RenoDX and DLSSNR versions listed in the
+1. Test the exact DS2LE, carrier, RenoDX and DLSSNR versions listed in the
    README on a clean game-folder backup.
 2. Record the tested GPU/driver and update the compatibility table.
 3. Run the build and inspect the SHA-256 output.
@@ -46,7 +49,8 @@ game archive has entered Git. The workflow performs the same policy check.
 5. Push the branch and tag. The tag workflow publishes the zip and
    `SHA256SUMS.txt`.
 6. In the GitHub Release notes, call out compatibility changes and known
-   runtime limitations; do not imply that third-party binaries are bundled.
+   runtime limitations, distinguishing the project carrier from unbundled
+   third-party runtimes.
 
 ## Design advice
 

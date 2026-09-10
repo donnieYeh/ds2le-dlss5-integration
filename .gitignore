@@ -19,3 +19,6 @@ skills-lock.json
 # Python cache (analysis tools are optional and not part of the player bundle)
 __pycache__/
 *.py[cod]
+tools/package-lazy-pack.ps1
+docs/LAZY-PACK-README.txt
+docs/LAZY-PACK-README.en.txt
