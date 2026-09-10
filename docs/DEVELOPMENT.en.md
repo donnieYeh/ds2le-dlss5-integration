@@ -4,10 +4,10 @@
 
 ## Repository boundary
 
-This repository owns the DINPUT8 proxy, its linker definition, configuration
-template, and packaging workflow. It intentionally has no game files and no
-third-party runtime binaries. Keep local runtime material outside the checkout
-or under an ignored `runtime/` directory.
+This repository owns the DINPUT8 proxy, the accepted single pre-SR NR carrier
+source, its linker definition, configuration template, and packaging workflow.
+It has no game files, DS2LE files, RenoDX binaries, or NVIDIA runtime binaries;
+ReShade SDK headers are fetched only as a temporary build dependency.
 
 ## Build architecture
 
@@ -18,6 +18,9 @@ add-ons from the game directory. The proxy then supplies the missing ReShade
 entry points, redirects the six LE stubs, and maintains the event slots that
 LE resets during device initialization.
 
+The carrier source lives under `src/bridge`. The scene-validated release
+carrier is pinned under `build-artifacts/pre-sr-nr/` with SHA-256
+`E4DE11B7FA31C5FE7682CFF8F33C158C9FB9C11EE7DB62CE2524FC823A241374`.
 The configuration poke table is tied to RenoDX DLSS5 4.60. If a new add-on
 changes its layout, the table must be re-derived and tested before release;
 never hide that change behind an unqualified "latest" download.
@@ -29,16 +32,19 @@ experiments. It does not emulate a game or certify runtime compatibility.
 
 ```powershell
 cmd /c src\proxy\build.cmd
+$env:DLSS5_RESHADE_INCLUDE = 'C:\path\to\include-root'
+cmd /c src\bridge\build.cmd
 .\tools\package-release.ps1 -Version local
 git diff --check
 ```
 
-Before opening a pull request, confirm that no `.dll`, `.addon64`, `.rar`, or
-game archive has entered Git. The workflow performs the same policy check.
+Before opening a pull request, confirm that no extra `.dll`, `.addon64`, `.rar`,
+or game archive has entered Git; the carrier is a build output, not a checked-in
+binary. The workflow audits both the repository and the final ZIP.
 
 ## Release checklist
 
-1. Test the exact DS2LE, Bridge, RenoDX and DLSSNR versions listed in the
+1. Test the exact DS2LE, carrier, RenoDX and DLSSNR versions listed in the
    README on a clean game-folder backup.
 2. Record the tested GPU/driver and update the compatibility table.
 3. Run the build and inspect the SHA-256 output.
@@ -46,7 +52,8 @@ game archive has entered Git. The workflow performs the same policy check.
 5. Push the branch and tag. The tag workflow publishes the zip and
    `SHA256SUMS.txt`.
 6. In the GitHub Release notes, call out compatibility changes and known
-   runtime limitations; do not imply that third-party binaries are bundled.
+   runtime limitations, distinguishing the project carrier from unbundled
+   third-party runtimes.
 
 ## Design advice
 

@@ -7,22 +7,27 @@ DirectX 11 DLSS path to the community DLSS Neural Rendering (DLSSNR) stack.
 It is aimed at **Dark Souls II: Scholar of the First Sin** players who already
 use the DS2LE Path Tracing build.
 
-The proxy is the only file built here. It loads the Bridge and RenoDX add-ons,
-fills the ReShade API surface that DS2LE's host omits, and keeps the add-on
-callbacks alive while the game initializes. It does not contain DS2LE, the
-game, ReShade, or any NVIDIA/community runtime.
+The project builds the DINPUT8 proxy and the project-maintained pre-SR NR
+bridge carrier. It loads the RenoDX add-on, fills the ReShade API surface that
+DS2LE's host omits, and keeps the add-on callbacks alive while the game
+initializes. It does not contain DS2LE, the game, ReShade, or any
+NVIDIA/community runtime.
 
 ## What is in a release?
 
 Each GitHub Release contains:
 
 - `DINPUT8.dll` — this project's proxy;
+- `dlss5-bridge.addon64` — the project-built pre-SR NR carrier validated in a real scene;
 - `ReShade.ini.example` — settings to merge into the game's existing file;
+- `dlss5-bridge.cfg.example` — the pre-SR NR setting;
+- `PRE-SR-NR-BUILD.md` — carrier build and validation record;
 - `README.md` / `README.en.md`, `INSTALL.txt` / `INSTALL.en.txt`, `LICENSE`, and `NOTICE.md`.
 
-The release archive deliberately does **not** redistribute third-party DLLs or
-add-ons. They remain under their own terms and must be downloaded from their
-upstream pages below.
+The release archive does not redistribute third-party DLLs or add-ons. They
+remain under their own terms and must be downloaded from their upstream pages
+below. The project carrier is built from this repository and does not require
+downloading a second upstream Bridge.
 
 ## Requirements
 
@@ -40,7 +45,7 @@ upstream pages below.
 | --- | --- |
 | DS2LE | Path Tracing public build `0.1` |
 | RenoDX DLSS5 | `4.60` (the add-on commonly called v4.6) |
-| DLSS5 Bridge | `v1.4.12` stable |
+| DLSS5 Bridge | This project's pre-SR NR carrier, based on `v1.4.12` / `5050b04` |
 | DLSSNR | `310.8.0-RTX40` |
 | GPU / driver | RTX 4070 SUPER / NVIDIA 616.64 |
 
@@ -56,9 +61,12 @@ licenses:
 | File | Source | Where it goes |
 | --- | --- | --- |
 | DS2LE Path Tracing files, including the ReShade `dxgi.dll` host | [DS2LightingEngine on Nexus](https://www.nexusmods.com/darksouls2/mods/1146) | Install the complete DS2LE package as documented by its author |
-| `dlss5-bridge.addon64` (`v1.4.12`) | [NIGos/dlss5-bridge releases](https://github.com/NIGos/dlss5-bridge/releases/tag/v1.4.12) | `Game\` |
 | `renodx-dlss5.addon64` (`4.60`) | [RankFTW/rhi-repo — RenoDX DLSS5 4.60](https://github.com/RankFTW/rhi-repo/releases/tag/renodx-dlss5-4.60) | `Game\` |
 | `nvngx_dlssnr.dll` (`310.8.0-RTX40`) | [RankFTW/rhi-repo releases](https://github.com/RankFTW/rhi-repo/releases) | `Game\` |
+
+The release's `dlss5-bridge.addon64` is built from this project's source and is
+the carrier validated in a real game scene. Do not download another Bridge
+copy into `Game\`.
 
 The DS2LE package's own `nvngx_dlss.dll`, `nvngx_dlssd.dll`, and
 `nvngx_dlssg.dll` are not replaced by this project. The proxy only adds the
@@ -75,9 +83,12 @@ DLSSNR path. Keep exactly one copy of each add-on in `Game\`.
    required because the new proxy forwards the game's six native DINPUT8
    exports to that filename.
 5. Copy `DINPUT8.dll` from the release archive into `Game\`.
-6. Copy `dlss5-bridge.addon64`, `renodx-dlss5.addon64`, and the matching
-   `nvngx_dlssnr.dll` into the same `Game\` folder.
-7. Open the existing `Game\ReShade.ini` and merge the sections from
+6. Copy the package's `dlss5-bridge.addon64`, plus the `renodx-dlss5.addon64`
+   and matching `nvngx_dlssnr.dll` downloaded from the upstream links, into the
+   same `Game\` folder.
+7. Merge `pre_sr_nr=1` from `dlss5-bridge.cfg.example` into
+   `Game\dlss5-bridge.cfg`; preserve the Bridge's other settings.
+8. Open the existing `Game\ReShade.ini` and merge the sections from
    `ReShade.ini.example`. Do not overwrite the whole file; preserve your DS2LE
    settings. The important tested values are:
 
@@ -94,7 +105,7 @@ DLSSNR path. Keep exactly one copy of each add-on in `Game\`.
    EventsDxgi=1
    ```
 
-8. Start the game with its normal Steam shortcut. In the DS2LE F1 menu, keep
+9. Start the game with its normal Steam shortcut. In the DS2LE F1 menu, keep
    the game's antialiasing method on **NVIDIA DLSS**. Set the final resolution
    and display mode before enabling neural rendering.
 
@@ -111,10 +122,12 @@ in `DirectXHook.log`/`dlss5-bridge.log`.
 
 The F2 panel writes the RenoDX values to `ReShade.ini`. Most per-frame values
 are picked up in roughly one second; feature-creation values such as
-`NREnableUpscaling` still require a restart. The tested RTX 40 runtime can
-reject the upscaling contract (`0xBAD00005`) and then fall back to native
-neural rendering. That is expected on the tested hardware, not a reason to
-replace the runtime with an unverified DLL.
+`NREnableUpscaling` still require a restart. With `pre_sr_nr=1`, the carrier
+evaluates same-resolution feature 18 NR first and then feeds that result to
+native feature 1 SR. The tested RTX 40 runtime can reject the upscaling
+contract (`0xBAD00005`) and then fall back to native neural rendering. That is
+expected on the tested hardware, not a reason to replace the runtime with an
+unverified DLL.
 
 ## Troubleshooting and rollback
 
@@ -122,6 +135,8 @@ replace the runtime with an unverified DLL.
 
 - Confirm that there is only one `dlss5-bridge.addon64` and one
   `renodx-dlss5.addon64`.
+- Confirm that the Bridge file is the project package's carrier, not a second
+  unverified upstream Bridge.
 - Confirm that the RenoDX add-on is the tested `4.60` build.
 - Keep `[DLSS5Proxy] EventsBridge=0`; bridge event callbacks are not safe in
   the current LE host even though the Bridge's frame-mirroring path works.
@@ -138,8 +153,8 @@ replace the runtime with an unverified DLL.
 **Returning to the unmodified setup**
 
 1. Close the game.
-2. Remove this project's `DINPUT8.dll` and the three third-party files added in
-   step 6.
+2. Remove this project's `DINPUT8.dll` and the package's
+   `dlss5-bridge.addon64`.
 3. Restore the original `DINPUT8.dll` and your backed-up `ReShade.ini` (and
    `dxgi.dll` if you changed it). The game files themselves are not modified by
    this project.
@@ -147,29 +162,39 @@ replace the runtime with an unverified DLL.
 ## Build from source
 
 The proxy is CRT-free C and uses the Microsoft x64 compiler plus GNU `ld` for
-the DINPUT8 forwarders.
+the DINPUT8 forwarders. The bridge carrier is built with the Microsoft x64 C++
+compiler.
 
 Prerequisites:
 
 - Visual Studio 2022 C++ x64 build tools;
 - [MSYS2](https://www.msys2.org/) UCRT64 `binutils` (`ld.exe`).
+- ReShade SDK headers (build-only; never included in the release package),
+  available from the `include/` directory of the
+  [ReShade source tree](https://github.com/crosire/reshade).
 
 From a Developer PowerShell or ordinary PowerShell prompt:
 
 ```powershell
 cmd /c src\proxy\build.cmd
+$env:DLSS5_RESHADE_INCLUDE = 'C:\path\to\include-root'
+cmd /c src\bridge\build.cmd
 ```
 
-The script writes `src\proxy\DINPUT8.dll`. It locates Visual Studio with
-`vswhere` and accepts `DLSS5_LD`/`DLSS5_LIB` environment overrides, which is
-how the CI job supplies the MSYS2 linker.
+`DLSS5_RESHADE_INCLUDE` must point to a directory containing
+`reshade\reshade_events.hpp`. The scripts write
+`src\proxy\DINPUT8.dll` and `src\bridge\dlss5-bridge.addon64`. The scripts
+locate Visual Studio with `vswhere`; the proxy accepts `DLSS5_LD`/`DLSS5_LIB`
+overrides, while CI supplies those variables and downloads the pinned ReShade
+headers into a temporary directory.
 
 ## GitHub Actions releases
 
 `.github/workflows/build-release.yml` runs on pull requests and on `v*` tags.
-It compiles the proxy on a Windows runner, rejects accidental bundled runtime
-binaries, creates the player zip and a SHA-256 manifest, and uploads the zip
-as a published GitHub Release asset for a tag.
+It fetches a pinned ReShade SDK header set into the runner's temp area, builds
+the project proxy and carrier, rejects accidental third-party runtimes in both
+the repository and the ZIP, creates the player ZIP and a SHA-256 manifest, and
+uploads the ZIP as a published GitHub Release asset for a tag.
 
 To publish a release after pushing the repository to GitHub:
 

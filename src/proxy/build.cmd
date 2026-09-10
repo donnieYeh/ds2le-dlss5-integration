@@ -22,7 +22,7 @@ if errorlevel 1 (
 )
 :vc_ready
 
-cl /nologo /c /O2 /Oi- /W3 /GS- dinput8.c
+cl /nologo /c /Od /Oi- /W3 /GS- dinput8.c
 if errorlevel 1 (
     echo ERROR: cl compilation failed.
     popd

@@ -13,21 +13,15 @@
 #include <windows.h>
 #include <commctrl.h>
 
-// CRT-free: satisfy cl's loop-idiom memcpy/memset emissions.
-// The volatile accesses are intentional: without them MSVC may recognize the
-// byte loop as memcpy and rewrite the implementation into a call to itself,
-// causing a stack overflow when the proxy copies a larger export table.
+// CRT-free: satisfy cl's loop-idiom memcpy/memset emissions
 #pragma function(memcpy, memset)
-__declspec(noinline) void *memcpy(void *d, const void *s, size_t n) {
-    volatile unsigned char *dd = (volatile unsigned char *)d;
-    const volatile unsigned char *ss = (const volatile unsigned char *)s;
-    while (n-- != 0) *dd++ = *ss++;
-    return d;
+void *memcpy(void *d, const void *s, size_t n) {
+    unsigned char *dd = (unsigned char *)d; const unsigned char *ss = (const unsigned char *)s;
+    size_t i; for (i = 0; i < n; i++) dd[i] = ss[i]; return d;
 }
-__declspec(noinline) void *memset(void *d, int c, size_t n) {
-    volatile unsigned char *dd = (volatile unsigned char *)d;
-    while (n-- != 0) *dd++ = (unsigned char)c;
-    return d;
+void *memset(void *d, int c, size_t n) {
+    unsigned char *dd = (unsigned char *)d; size_t i;
+    for (i = 0; i < n; i++) dd[i] = (unsigned char)c; return d;
 }
 
 static int wlen(const wchar_t *s) { int n = 0; while (s[n]) n++; return n; }
@@ -193,6 +187,7 @@ static const char *shim_Version(void) { return "6.8.0.2155"; }
 static unsigned char *g_dxgi;
 static void **g_dispatch;              // g_dxgi + 0xBFB030
 static char g_inipath[520];            // <game dir>\ReShade.ini
+static char g_bridgecfgpath[520];      // <game dir>\dlss5-bridge.cfg
 
 static CRITICAL_SECTION g_evlk;
 static int g_evlk_ready;
@@ -790,15 +785,16 @@ static DWORD WINAPI cfgwatch_thread(LPVOID p) {
 
 // ---------------- F2 floating config panel (ADR-0008 phase 2) ----------------
 // Separate topmost Win32 window, deliberately NOT hooked into the D3D path.
-// F2 toggles it. Edits write ReShade.ini; cfgwatch pokes renodx globals within
-// ~1s, so this panel is just a frontend for the poke layer. Panel text is ASCII
-// on purpose (UTF-8 source + A-API mixing is not worth it here).
+// F2 toggles it. RenoDX edits write ReShade.ini; the bridge's pre_sr_nr row
+// writes dlss5-bridge.cfg, whose own watcher applies it within ~1s. Panel text
+// is ASCII on purpose (UTF-8 source + A-API mixing is not worth it here).
 
 #define PCTL_EDIT   0
 #define PCTL_CHECK  1
 #define PCTL_COMBO  2
 #define PCTL_SEP    3
 #define PCTL_SLIDER 4
+#define PNL_BRIDGE_PRE_SR_NR (-2)
 
 typedef struct _PNLROW {
     int poke;           // index into g_poke (-1 for separator)
@@ -808,6 +804,7 @@ typedef struct _PNLROW {
 } PNLROW;
 
 static PNLROW g_rows[] = {
+    { PNL_BRIDGE_PRE_SR_NR, PCTL_COMBO, "0=off; 1-3 sequential NR layers (restart required)", "0 Off|1 1 layer|2 2 layers|3 3 layers" },
     { 3,  PCTL_COMBO,  "0=Default 1=Natural 2=Cinema", "0 Default|1 Natural|2 Cinema" }, // NRStyle
     { 2,  PCTL_COMBO,  "preset 0-3",        "0|1|2|3" }, // NRPreset
     { 10, PCTL_COMBO,  "0-2",               "0|1|2" },   // NRDepthMode
@@ -839,6 +836,157 @@ static PNLROW g_rows[] = {
 static HWND g_pnl, g_pnl_ctl[NROWS], g_pnl_val[NROWS]; // val = slider readout label
 static int g_pnl_visible;
 static char g_panel_ini[65536]; // separate from cfgwatch's g_ini_text (threads)
+static char g_bridgecfg_text[65536];
+static char g_bridgecfg_out[65536];
+
+static int bridge_cfg_extract_pre_sr_nr(const char *text, char *out, int cap) {
+    const char *p = text;
+    out[0] = 0;
+    while (*p) {
+        const char *eol = p;
+        const char *s;
+        const char *k;
+        int n;
+        while (*eol && *eol != '\n') eol++;
+        s = p;
+        while (s < eol && (*s == ' ' || *s == '\t' || *s == '\r')) s++;
+        if (*s != '#' && *s != ';') {
+            k = s;
+            while (k < eol && *k != '=' && *k != ' ' && *k != '\t' && *k != '\r') k++;
+            n = (int)(k - s);
+            if (n == 9 && s[0] == 'p' && s[1] == 'r' && s[2] == 'e' &&
+                s[3] == '_' && s[4] == 's' && s[5] == 'r' && s[6] == '_' &&
+                s[7] == 'n' && s[8] == 'r') {
+                while (k < eol && (*k == ' ' || *k == '\t')) k++;
+                if (k < eol && *k == '=') {
+                    int len = 0;
+                    k++;
+                    while (k < eol && (*k == ' ' || *k == '\t')) k++;
+                    while (k < eol && *k != '\r' && len < cap - 1) out[len++] = *k++;
+                    while (len > 0 && (out[len - 1] == ' ' || out[len - 1] == '\t')) len--;
+                    out[len] = 0;
+                    return len;
+                }
+            }
+        }
+        p = *eol ? eol + 1 : eol;
+    }
+    return 0;
+}
+
+static int bridge_cfg_write_text(const char *value) {
+    int n = cfg_read_file(g_bridgecfgpath, g_bridgecfg_text, sizeof g_bridgecfg_text);
+    int oi = 0, found = 0;
+    const char *p;
+    char tmp[560];
+    HANDLE h;
+    DWORD written;
+    int i;
+    if (n < 0) return 0;
+    p = g_bridgecfg_text;
+    while (*p && oi < (int)sizeof(g_bridgecfg_out) - 32) {
+        const char *eol = p;
+        const char *s = p;
+        const char *k;
+        int kn;
+        while (*eol && *eol != '\n') eol++;
+        while (s < eol && (*s == ' ' || *s == '\t' || *s == '\r')) s++;
+        k = s;
+        while (k < eol && *k != '=' && *k != ' ' && *k != '\t' && *k != '\r') k++;
+        kn = (int)(k - s);
+        if (!found && *s != '#' && *s != ';' && kn == 9 &&
+            s[0] == 'p' && s[1] == 'r' && s[2] == 'e' && s[3] == '_' &&
+            s[4] == 's' && s[5] == 'r' && s[6] == '_' && s[7] == 'n' &&
+            s[8] == 'r') {
+            while (k < eol && (*k == ' ' || *k == '\t')) k++;
+            if (k < eol && *k == '=') {
+                static const char key[] = "pre_sr_nr=";
+                for (i = 0; key[i] && oi < (int)sizeof(g_bridgecfg_out) - 1; i++)
+                    g_bridgecfg_out[oi++] = key[i];
+                for (i = 0; value[i] && oi < (int)sizeof(g_bridgecfg_out) - 1; i++)
+                    g_bridgecfg_out[oi++] = value[i];
+                if (eol > p && eol[-1] == '\r') g_bridgecfg_out[oi++] = '\r';
+                if (*eol) g_bridgecfg_out[oi++] = '\n';
+                found = 1;
+                p = *eol ? eol + 1 : eol;
+                continue;
+            }
+        }
+        while (p < eol && oi < (int)sizeof(g_bridgecfg_out) - 1) g_bridgecfg_out[oi++] = *p++;
+        if (*eol && oi < (int)sizeof(g_bridgecfg_out) - 1) g_bridgecfg_out[oi++] = *p++;
+    }
+    if (!found) {
+        static const char key[] = "pre_sr_nr=";
+        if (oi > 0 && g_bridgecfg_out[oi - 1] != '\n' && oi < (int)sizeof(g_bridgecfg_out) - 2)
+            g_bridgecfg_out[oi++] = '\r', g_bridgecfg_out[oi++] = '\n';
+        for (i = 0; key[i] && oi < (int)sizeof(g_bridgecfg_out) - 1; i++) g_bridgecfg_out[oi++] = key[i];
+        for (i = 0; value[i] && oi < (int)sizeof(g_bridgecfg_out) - 1; i++) g_bridgecfg_out[oi++] = value[i];
+        if (oi < (int)sizeof(g_bridgecfg_out) - 2) g_bridgecfg_out[oi++] = '\r', g_bridgecfg_out[oi++] = '\n';
+    }
+    for (i = 0; g_bridgecfgpath[i] && i < (int)sizeof(tmp) - 5; i++) tmp[i] = g_bridgecfgpath[i];
+    tmp[i++] = '.'; tmp[i++] = 't'; tmp[i++] = 'm'; tmp[i++] = 'p'; tmp[i] = 0;
+    h = CreateFileA(tmp, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (h == INVALID_HANDLE_VALUE) return 0;
+    if (!WriteFile(h, g_bridgecfg_out, (DWORD)oi, &written, NULL) || written != (DWORD)oi) {
+        CloseHandle(h); DeleteFileA(tmp); return 0;
+    }
+    CloseHandle(h);
+    if (!MoveFileExA(tmp, g_bridgecfgpath, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        DeleteFileA(tmp); return 0;
+    }
+    return 1;
+}
+
+// Changing the layer count while the bridge is processing frames can race its
+// feature/resource rebuild. Stage the panel selection for the next process
+// instead; loader_thread applies it before the bridge is loaded.
+static int bridge_cfg_stage_pre_sr_nr(const char *value) {
+    char path[560];
+    HANDLE h;
+    DWORD written;
+    int i = 0;
+    while (g_bridgecfgpath[i] && i < (int)sizeof(path) - 12) { path[i] = g_bridgecfgpath[i]; i++; }
+    path[i++] = '.'; path[i++] = 'n'; path[i++] = 'e'; path[i++] = 'x'; path[i] = 0;
+    h = CreateFileA(path, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS,
+                    FILE_ATTRIBUTE_NORMAL, NULL);
+    if (h == INVALID_HANDLE_VALUE) return 0;
+    {
+        char text[32];
+        int n = 0, j;
+        static const char key[] = "pre_sr_nr=";
+        for (j = 0; key[j] && n < (int)sizeof(text) - 1; j++) text[n++] = key[j];
+        for (j = 0; value[j] && n < (int)sizeof(text) - 1; j++) text[n++] = value[j];
+        if (n < (int)sizeof(text) - 3) { text[n++] = '\r'; text[n++] = '\n'; }
+        if (!WriteFile(h, text, (DWORD)n, &written, NULL) || written != (DWORD)n) {
+            CloseHandle(h); DeleteFileA(path); return 0;
+        }
+    }
+    CloseHandle(h);
+    return 1;
+}
+
+static void bridge_cfg_apply_staged_pre_sr_nr(void) {
+    char path[560], text[128], value[16], normalized[4];
+    int i = 0, ok = 0;
+    long v;
+    while (g_bridgecfgpath[i] && i < (int)sizeof(path) - 12) { path[i] = g_bridgecfgpath[i]; i++; }
+    path[i++] = '.'; path[i++] = 'n'; path[i++] = 'e'; path[i++] = 'x'; path[i] = 0;
+    if (cfg_read_file(path, text, sizeof(text)) <= 0) return;
+    if (!bridge_cfg_extract_pre_sr_nr(text, value, sizeof(value))) {
+        DeleteFileA(path);
+        logmsgA("pre_sr_nr staged value invalid", path, 0);
+        return;
+    }
+    v = parse_i32(value, &ok);
+    if (!ok) { DeleteFileA(path); logmsgA("pre_sr_nr staged value invalid", value, 0); return; }
+    if (v < 0) v = 0;
+    if (v > 3) v = 3;
+    normalized[0] = (char)('0' + v); normalized[1] = 0;
+    if (bridge_cfg_write_text(normalized)) {
+        DeleteFileA(path);
+        logmsgA("pre_sr_nr staged value applied", normalized, (unsigned long long)v);
+    }
+}
 
 static void i2a10(long v, char *out) {
     char t[16];
@@ -884,7 +1032,22 @@ static float slider_val_of(int row, int pos) {
 }
 
 static void panel_write_row(int i, const char *val) {
-    WritePrivateProfileStringA("RenoDX.DLSS5", g_poke[g_rows[i].poke].key, val, g_inipath);
+    if (g_rows[i].poke == PNL_BRIDGE_PRE_SR_NR) {
+        int ok = 0;
+        long v = parse_i32(val, &ok);
+        if (!ok) return;
+        if (v < 0) v = 0;
+        if (v > 3) v = 3;
+        { char b[8]; i2a10(v, b); bridge_cfg_stage_pre_sr_nr(b); }
+        logmsgA("panel pre_sr_nr staged (restart required)", NULL, (unsigned long long)v);
+    } else {
+        WritePrivateProfileStringA("RenoDX.DLSS5", g_poke[g_rows[i].poke].key, val, g_inipath);
+    }
+}
+
+static const char *panel_row_key(int i) {
+    if (g_rows[i].poke == PNL_BRIDGE_PRE_SR_NR) return "pre_sr_nr";
+    return g_poke[g_rows[i].poke].key;
 }
 
 static void panel_apply_all(void) {
@@ -905,12 +1068,20 @@ static void panel_refresh(void) {
         PNLROW *r = &g_rows[i];
         POKEENT *e;
         if (r->ctrl == PCTL_SEP) continue;
-        e = &g_poke[r->poke];
-        ini_extract(g_panel_ini, "RenoDX.DLSS5", e->key, b, sizeof b);
-        if (!b[0]) { // key absent in ini -> show the plugin's own default
-            int j = 0;
-            while (e->def[j] && j < 63) { b[j] = e->def[j]; j++; }
-            b[j] = 0;
+        if (r->poke == PNL_BRIDGE_PRE_SR_NR) {
+            if (cfg_read_file(g_bridgecfgpath, g_bridgecfg_text, sizeof g_bridgecfg_text) <= 0 ||
+                !bridge_cfg_extract_pre_sr_nr(g_bridgecfg_text, b, sizeof b)) {
+                b[0] = '1'; b[1] = 0;
+            }
+            e = NULL;
+        } else {
+            e = &g_poke[r->poke];
+            ini_extract(g_panel_ini, "RenoDX.DLSS5", e->key, b, sizeof b);
+            if (!b[0]) { // key absent in ini -> show the plugin's own default
+                int j = 0;
+                while (e->def[j] && j < 63) { b[j] = e->def[j]; j++; }
+                b[j] = 0;
+            }
         }
         if (r->ctrl == PCTL_EDIT) {
             SetWindowTextA(g_pnl_ctl[i], b);
@@ -942,7 +1113,8 @@ static void panel_reset_defaults(void) {
     int i;
     for (i = 0; i < (int)NPOKE; i++)
         WritePrivateProfileStringA("RenoDX.DLSS5", g_poke[i].key, g_poke[i].def, g_inipath);
-    logmsgA("panel", "reset defaults", (unsigned long long)NPOKE);
+    bridge_cfg_stage_pre_sr_nr("1");
+    logmsgA("panel", "reset defaults", (unsigned long long)(NPOKE + 1));
     panel_refresh();
 }
 
@@ -1046,7 +1218,7 @@ static DWORD WINAPI panel_thread(LPVOID p) {
             c = CreateWindowExA(0, "STATIC", r->hint, WS_CHILD | WS_VISIBLE,
                                 10, y + 4, PNL_W - 30, 18, g_pnl, NULL, NULL, NULL);
         } else {
-            HWND lab = CreateWindowExA(0, "STATIC", g_poke[r->poke].key, WS_CHILD | WS_VISIBLE,
+            HWND lab = CreateWindowExA(0, "STATIC", panel_row_key(i), WS_CHILD | WS_VISIBLE,
                                        10, y + 3, 150, 18, g_pnl, NULL, NULL, NULL);
             SendMessageA(lab, WM_SETFONT, (WPARAM)fnt, 1);
             if (r->ctrl == PCTL_EDIT) {
@@ -1096,7 +1268,7 @@ static DWORD WINAPI panel_thread(LPVOID p) {
                                   118, by, 110, 26, g_pnl, (HMENU)(ULONG_PTR)ID_RESET, NULL, NULL);
         HWND n2 = CreateWindowExA(0, "STATIC", "sliders / checks / combos write instantly; watcher pokes within ~1s (dlss5-loader.log 'poke')",
                                   WS_CHILD | WS_VISIBLE, 236, by + 4, PNL_W - 250, 18, g_pnl, NULL, NULL, NULL);
-        HWND n3 = CreateWindowExA(0, "STATIC", "Reset writes the plugin's own defaults for all 19 keys; shown values fall back to defaults when the ini key is absent",
+        HWND n3 = CreateWindowExA(0, "STATIC", "Reset writes defaults for all 19 RenoDX keys plus pre_sr_nr=1; absent keys show their defaults",
                                   WS_CHILD | WS_VISIBLE, 10, by + 34, PNL_W - 30, 18, g_pnl, NULL, NULL, NULL);
         SendMessageA(b, WM_SETFONT, (WPARAM)fnt, 1);
         SendMessageA(rb, WM_SETFONT, (WPARAM)fnt, 1);
@@ -1371,7 +1543,16 @@ static void fill_basepath(HMODULE dxgi) {
     // ReShade.ini next to the ReShade host module (= game dir)
     for (i = 0; i <= n; i++) g_inipath[i] = g_basepath[i];
     { static const char tail[] = "ReShade.ini"; int j = 0; while (tail[j]) g_inipath[n++] = tail[j++]; g_inipath[n] = 0; }
+    for (i = 0; i <= g_basepath_len; i++) g_bridgecfgpath[i] = g_basepath[i];
+    { static const char tail[] = "dlss5-bridge.cfg"; int j = 0; i = g_basepath_len; while (tail[j]) g_bridgecfgpath[i++] = tail[j++]; g_bridgecfgpath[i] = 0; }
     logmsgA("ini path", g_inipath, 0);
+    logmsgA("bridge cfg path", g_bridgecfgpath, 0);
+}
+
+static HMODULE find_ngx_module(void) {
+    HMODULE m = GetModuleHandleW(L"_nvngx.dll");
+    if (!m) m = GetModuleHandleW(L"nvngx.dll");
+    return m;
 }
 
 static DWORD WINAPI loader_thread(LPVOID param) {
@@ -1390,6 +1571,7 @@ static DWORD WINAPI loader_thread(LPVOID param) {
         if (dxgi) {
             HANDLE wth;
             fill_basepath(dxgi);
+            bridge_cfg_apply_staged_pre_sr_nr();
             logmsg("basepath", NULL, (unsigned long long)g_basepath_len);
             __try {
                 i = extend_dxgi_exports(dxgi);
@@ -1415,13 +1597,20 @@ static DWORD WINAPI loader_thread(LPVOID param) {
     for (i = 0; i < 2; i++) {
         HMODULE m;
         if (is_exiting()) return 0;
-        // renodx v4.1.5 hooks NGX only in its DllMain boot scan, while the
-        // bridge loads _nvngx.dll asynchronously ~4.5s after attach; without
-        // this gate the scan runs first and renodx never hooks anything.
+        // RenoDX installs its NGX detours during its DllMain boot scan. The
+        // bridge loads the driver layer asynchronously, and shader/device
+        // startup here can take well over 30 seconds. A short gate makes
+        // RenoDX scan an empty module set permanently. Keep the wait on this
+        // worker thread so the game's render thread is never blocked.
         if (i == 1) {
-            for (j = 0; j < 60 && !is_exiting() && !GetModuleHandleW(L"_nvngx.dll"); j++) Sleep(500);
+            logmsgA("NGX gate", "waiting for driver layer", 120000);
+            for (j = 0; j < 240 && !is_exiting() && !find_ngx_module(); j++) Sleep(500);
             if (is_exiting()) return 0;
-            logmsg("_nvngx.dll wait done", NULL, (unsigned long long)(ULONG_PTR)GetModuleHandleW(L"_nvngx.dll"));
+            {
+                HMODULE ngx = find_ngx_module();
+                if (ngx) logmsg("NGX gate ready", NULL, (unsigned long long)(ULONG_PTR)ngx);
+                else logmsgA("NGX gate timeout", "RenoDX scan may miss NGX", 120000);
+            }
         }
         wcpy(path, dir);
         wcat(path, L"\\");

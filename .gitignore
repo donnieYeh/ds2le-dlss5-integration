@@ -1,7 +1,19 @@
 # Build products
 src/proxy/*.obj
 src/proxy/*.dll
+src/bridge/*.addon64
+src/bridge/*.dll
+src/bridge/*.exp
+src/bridge/*.ilk
+src/bridge/*.lib
+src/bridge/*.map
+src/bridge/*.obj
+src/bridge/*.pdb
+src/bridge/*.res
 dist/
+
+# ReShade SDK headers are fetched into a temporary CI include root.
+src/bridge/reshade/
 
 # Runtime logs and local test material
 *.log
@@ -9,6 +21,11 @@ dist/
 *.rar
 runtime/
 local-game/
+
+# Local lazy-pack helper is intentionally outside the player release flow.
+tools/package-lazy-pack.ps1
+docs/LAZY-PACK-README.txt
+docs/LAZY-PACK-README.en.txt
 
 # Tooling/editor state
 .agents/
