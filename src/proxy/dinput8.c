@@ -804,7 +804,7 @@ typedef struct _PNLROW {
 } PNLROW;
 
 static PNLROW g_rows[] = {
-    { PNL_BRIDGE_PRE_SR_NR, PCTL_COMBO, "0=off; 1-3 sequential NR layers (restart required)", "0 Off|1 1 layer|2 2 layers|3 3 layers" },
+    { PNL_BRIDGE_PRE_SR_NR, PCTL_COMBO, "0=off; 1 layer only (need restart)", "0 Off|1 1 layer" },
     { 3,  PCTL_COMBO,  "0=Default 1=Natural 2=Cinema", "0 Default|1 Natural|2 Cinema" }, // NRStyle
     { 2,  PCTL_COMBO,  "preset 0-3",        "0|1|2|3" }, // NRPreset
     { 10, PCTL_COMBO,  "0-2",               "0|1|2" },   // NRDepthMode
@@ -979,8 +979,7 @@ static void bridge_cfg_apply_staged_pre_sr_nr(void) {
     }
     v = parse_i32(value, &ok);
     if (!ok) { DeleteFileA(path); logmsgA("pre_sr_nr staged value invalid", value, 0); return; }
-    if (v < 0) v = 0;
-    if (v > 3) v = 3;
+    if (v != 0 && v != 1) v = 0;
     normalized[0] = (char)('0' + v); normalized[1] = 0;
     if (bridge_cfg_write_text(normalized)) {
         DeleteFileA(path);
@@ -1036,8 +1035,7 @@ static void panel_write_row(int i, const char *val) {
         int ok = 0;
         long v = parse_i32(val, &ok);
         if (!ok) return;
-        if (v < 0) v = 0;
-        if (v > 3) v = 3;
+        if (v != 0 && v != 1) v = 0;
         { char b[8]; i2a10(v, b); bridge_cfg_stage_pre_sr_nr(b); }
         logmsgA("panel pre_sr_nr staged (restart required)", NULL, (unsigned long long)v);
     } else {
@@ -1092,6 +1090,7 @@ static void panel_refresh(void) {
         } else if (r->ctrl == PCTL_COMBO) {
             int ok = 0;
             long v = parse_i32(b, &ok);
+            if (r->poke == PNL_BRIDGE_PRE_SR_NR && ok) v = (v == 1) ? 1 : 0;
             SendMessageA(g_pnl_ctl[i], CB_SETCURSEL, ok ? (WPARAM)v : (WPARAM)-1, 0);
         } else if (r->ctrl == PCTL_SLIDER) {
             int ok = 0;

@@ -122,7 +122,9 @@ in `DirectXHook.log`/`dlss5-bridge.log`.
 
 The F2 panel writes the RenoDX values to `ReShade.ini`. Most per-frame values
 are picked up in roughly one second; feature-creation values such as
-`NREnableUpscaling` still require a restart. With `pre_sr_nr=1`, the carrier
+`NREnableUpscaling` still require a restart. The `pre_sr_nr` control exposes only
+`0 Off` and `1 1 layer`, with an explicit `need restart` hint; restart the game
+after selecting it. With `pre_sr_nr=1`, the carrier
 evaluates same-resolution feature 18 NR first and then feeds that result to
 native feature 1 SR. The tested RTX 40 runtime can reject the upscaling
 contract (`0xBAD00005`) and then fall back to native neural rendering. That is

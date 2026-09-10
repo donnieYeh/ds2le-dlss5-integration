@@ -106,7 +106,8 @@ DS2LE 自带的 `nvngx_dlss.dll`、`nvngx_dlssd.dll`、`nvngx_dlssg.dll` 不需�
 - **F6**：开关神经渲染（约按住 1 秒）。
 
 F2 面板会写入 `ReShade.ini`。大多数逐帧参数约 1 秒内生效；`NREnableUpscaling`
-等 feature 创建期参数需要重启。`pre_sr_nr=1` 时，carrier 先执行同分辨率
+等 feature 创建期参数需要重启。面板中的 `pre_sr_nr` 只有 `0 Off` 和 `1 1 layer`，
+并标注 `need restart`；选择后必须重启游戏。`pre_sr_nr=1` 时，carrier 先执行同分辨率
 feature-18 NR，再把结果交给原生 feature-1 SR。已验证的 RTX 40 运行时可能拒绝升频契约
 （`0xBAD00005`），随后回退到原生神经渲染，这是运行时能力限制。
 
