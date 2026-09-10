@@ -24,6 +24,7 @@ jobs:
       - name: Fetch pinned ReShade SDK headers for build only
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $reshadeCommit = '358c345ca2fe64f86e67c694f8379c356627adcb'
           $includeRoot = Join-Path $env:RUNNER_TEMP 'dlss5-bridge-include'
           $headerRoot = Join-Path $includeRoot 'reshade'
